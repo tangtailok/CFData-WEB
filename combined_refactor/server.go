@@ -65,9 +65,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
-	cfCountry := cloudflareCountryFromHeader(r)
-	cfCountryOK := cfCountry != ""
-	if !skipGeoCheck && cfCountry == "" {
+	cfCountry := ""
+	cfCountryOK := false
+	if !skipGeoCheck {
 		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 		cfCountry, cfCountryOK = detectCloudflareTraceCountry(ctx)
 		cancel()
@@ -253,13 +253,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				session.sendWSMessage("proxy_country_result", map[string]interface{}{"cfCountry": "SKIPPED", "proxyWarning": false, "skipGeoCheck": true})
 				return
 			}
-			country := cloudflareCountryFromHeader(r)
-			countryOK := country != ""
-			if country == "" {
-				ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
-				country, countryOK = detectCloudflareTraceCountry(ctx)
-				cancel()
-			}
+			ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+			country, countryOK := detectCloudflareTraceCountry(ctx)
+			cancel()
 			session.sendWSMessage("proxy_country_result", map[string]interface{}{"cfCountry": country, "proxyWarning": !countryOK || shouldWarnProxyCountry(country), "geoCheckOK": countryOK})
 		},
 		"github_upload": func(data json.RawMessage) {

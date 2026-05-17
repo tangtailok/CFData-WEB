@@ -10,13 +10,6 @@ import (
 	"strings"
 )
 
-func cloudflareCountryFromHeader(r *http.Request) string {
-	if r == nil {
-		return ""
-	}
-	return strings.ToUpper(strings.TrimSpace(r.Header.Get("CF-IPCountry")))
-}
-
 func shouldWarnProxyCountry(country string) bool {
 	country = strings.ToUpper(strings.TrimSpace(country))
 	return country == "" || (country != "CN" && country != "XX" && country != "T1")
