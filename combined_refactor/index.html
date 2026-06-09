@@ -585,6 +585,86 @@
             font-weight: 700;
         }
 
+        .background-status-card {
+            display: none;
+            border: 1px solid rgba(59, 130, 246, 0.28);
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--bg-color), var(--primary-color) 8%);
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .background-status-card.active {
+            display: block;
+        }
+
+        .background-confirm-card {
+            display: none;
+            margin-top: 10px;
+            margin-bottom: 0;
+            border-color: rgba(245, 158, 11, 0.45);
+            background: color-mix(in srgb, var(--bg-color), var(--warning-color) 10%);
+        }
+
+        .background-confirm-card.active {
+            display: block;
+        }
+
+        .background-confirm-text {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin: 8px 0 12px;
+        }
+
+        .background-confirm-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .background-status-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .background-status-title {
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .background-status-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .background-status-item {
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px;
+            background: var(--card-bg);
+            min-width: 0;
+        }
+
+        .background-status-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .background-status-value {
+            font-weight: 700;
+            color: var(--text-main);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         @keyframes stripe {
             from {
                 background-position: 0 0, 0 0;
@@ -832,6 +912,28 @@
             width: min(680px, 100%);
         }
 
+        .notice-modal {
+            width: min(560px, 100%);
+        }
+
+        .notice-card {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .notice-card-title {
+            margin: 0;
+            color: var(--text-main);
+            font-size: 20px;
+        }
+
+        .notice-card-message {
+            white-space: pre-line;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
         .proxy-warning-card {
             display: flex;
             flex-direction: column;
@@ -1053,6 +1155,20 @@
             flex: 1;
         }
 
+        .separator-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .separator-row select {
+            flex: 0 0 min(170px, 45%);
+        }
+
+        .separator-row input {
+            flex: 1;
+        }
+
         .inline-check {
             display: inline-flex;
             align-items: center;
@@ -1177,6 +1293,10 @@
                 align-items: flex-start;
                 padding: 10px;
                 overflow-y: auto;
+            }
+
+            #noticeCardMask {
+                align-items: center;
             }
 
             .modal-grid {
@@ -1359,6 +1479,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .background-status-grid {
+                grid-template-columns: 1fr;
+            }
+
             .option-item {
                 flex-direction: column;
                 align-items: flex-start;
@@ -1498,7 +1622,7 @@
                 </div>
                 <div class="option-item">
                     <span class="label">📉 测速阈值</span>
-                    <input id="officialSpeedMin" type="number" value="0.1" step="0.01" placeholder="默认 0.1MB/s">
+                    <input id="officialSpeedMin" type="number" value="0.1" step="0.01" placeholder="默认 0.1MB/s" oninput="syncOfficialSpeedConfigState()">
                 </div>
                 <div class="option-item">
                     <span class="label">🏁 测试结果上限</span>
@@ -1580,7 +1704,7 @@
                 </div>
                 <div class="option-item">
                     <span class="label">📉 测速阈值</span>
-                    <input id="nsbSpeedMin" type="number" value="0.1" step="0.01" placeholder="默认 0.1MB/s">
+                    <input id="nsbSpeedMin" type="number" value="0.1" step="0.01" placeholder="默认 0.1MB/s" oninput="syncNSBSpeedConfigState()">
                 </div>
                 <div class="option-item">
                     <span class="label">🏁 测试结果上限</span>
@@ -1643,10 +1767,41 @@
 
             <button id="btnStart" class="btn" onclick="startTask()"><span id="btnStartSpinner"
                     class="hidden"></span><span id="btnStartLabel">✨ 开始扫描与测试</span></button>
+            <button id="btnRunInBackground" class="action-btn export-btn" onclick="runTaskInBackground()" style="display:none;margin-top:10px;">🕘 转入后台运行</button>
+            <div class="background-status-card background-confirm-card" id="backgroundConfirmCard">
+                <div class="background-status-title">确认转入后台运行？</div>
+                <div class="background-confirm-text">
+                    <div>关闭或刷新页面不会中断任务。</div>
+                    <div>不会恢复断开期间的表格历史结果。</div>
+                    <div>后台任务只保留轻量状态，不做后台恢复同步全部数据。</div>
+                    <div>经过测试，数据量过大时同步全部数据可能导致浏览器崩溃。</div>
+                    <div>大任务建议使用 CLI 查看最终结果文件。</div>
+                </div>
+                <div class="background-confirm-actions">
+                    <button class="action-btn export-btn" onclick="confirmRunTaskInBackground()">确认转入后台</button>
+                    <button class="action-btn" onclick="hideBackgroundConfirmCard()">取消</button>
+                </div>
+            </div>
         </div>
 
         <div class="progress-container" id="progressBox">
             <div class="progress-bar" id="progressBar">0%</div>
+        </div>
+
+        <div class="background-status-card" id="backgroundStatusCard">
+            <div class="background-status-head">
+                <div class="background-status-title" id="backgroundStatusTitle">🕘 后台任务运行中</div>
+                <button class="action-btn export-btn" id="btnFollowBackground" onclick="followBackgroundTask()">📡 跟随实时数据</button>
+            </div>
+            <div class="background-status-grid">
+                <div class="background-status-item"><span class="background-status-label">数据来源</span><div class="background-status-value" id="backgroundSource">-</div></div>
+                <div class="background-status-item"><span class="background-status-label">阶段</span><div class="background-status-value" id="backgroundPhase">-</div></div>
+                <div class="background-status-item"><span class="background-status-label">进度</span><div class="background-status-value" id="backgroundProgressText">-</div></div>
+                <div class="background-status-item"><span class="background-status-label">扫描结果</span><div class="background-status-value" id="backgroundResultCount">0</div></div>
+                <div class="background-status-item"><span class="background-status-label">测速结果</span><div class="background-status-value" id="backgroundSpeedCount">0</div></div>
+                <div class="background-status-item" id="backgroundExtraItem"><span class="background-status-label">详细/数据中心</span><div class="background-status-value" id="backgroundExtraCount">0 / 0</div></div>
+                <div class="background-status-item" style="grid-column:1/-1;"><span class="background-status-label">状态</span><div class="background-status-value" id="backgroundMessage">-</div></div>
+            </div>
         </div>
 
         <div class="tabs">
@@ -1696,7 +1851,7 @@
                             <button class="action-btn export-btn" id="btnNSBBatchSpeed" onclick="startNSBBatchSpeed(false)" disabled>🚀 一键测速</button>
                             <button class="action-btn export-btn" id="btnNSBContinueSpeed" onclick="startNSBBatchSpeed(true)" disabled>⏭️ 继续测速</button>
                             <button class="action-btn export-btn" id="btnNSBSort" onclick="openSortModal('nsb')">↕️ 一键排序</button>
-                            <button class="action-btn export-btn" id="btnScanCopy" onclick="copyDisplayedResults('scan', event)">📋 一键复制</button>
+                            <button class="action-btn export-btn" id="btnScanCopy" onclick="openCopyModal('scan')">📋 一键复制</button>
                             <button class="action-btn export-btn" id="btnScanResultAction" onclick="openResultModal('scan')">📥 结果操作</button>
                         </span>
                     </span>
@@ -1734,7 +1889,7 @@
                             <button class="action-btn export-btn" id="btnBatchSpeed" onclick="startOfficialBatchSpeed(false)" disabled>🚀 一键测速</button>
                             <button class="action-btn export-btn" id="btnContinueBatchSpeed" onclick="startOfficialBatchSpeed(false, true)" disabled>⏭️ 继续测速</button>
                             <button class="action-btn export-btn" id="btnTestSort" onclick="openSortModal('official')">↕️ 一键排序</button>
-                            <button class="action-btn export-btn" id="btnTestCopy" onclick="copyDisplayedResults('test', event)">📋 一键复制</button>
+                            <button class="action-btn export-btn" id="btnTestCopy" onclick="openCopyModal('test')">📋 一键复制</button>
                             <button class="action-btn export-btn" id="btnTestResultAction" onclick="openResultModal('test')">📥 结果操作</button>
                         </span>
                     </span>
@@ -1829,6 +1984,24 @@
                         <label>自定义字段</label>
                         <input id="resultCustomFields" type="text" placeholder="标题:内容，多项用逗号分隔，例如 备注:测试版,归属:cfdata" oninput="handleCustomResultFieldsChange()">
                     </div>
+                    <div class="modal-field full" id="resultTextSeparatorField">
+                        <label>TXT 字段分隔符</label>
+                        <div class="separator-row">
+                            <select id="resultTextSeparatorPreset" onchange="applyTextSeparatorPreset('result', this.value)">
+                                <option value="-" selected>-</option>
+                                <option value="|">|</option>
+                                <option value="space">空格</option>
+                                <option value="~">~</option>
+                                <option value="_">_</option>
+                                <option value="/">/</option>
+                                <option value="&#92;">&#92;</option>
+                                <option value=",">,</option>
+                                <option value=".">.</option>
+                                <option value="custom">自定义</option>
+                            </select>
+                            <input id="resultTextSeparatorCustom" type="text" value="-" placeholder="自定义分隔符" oninput="markTextSeparatorCustom('result')">
+                        </div>
+                    </div>
                     <div class="modal-field full">
                         <label>输出顺序</label>
                         <div class="order-list" id="resultOrderList"></div>
@@ -1885,6 +2058,87 @@
         </div>
     </div>
 
+    <div class="modal-mask" id="copyModalMask">
+        <div class="result-modal">
+            <div class="modal-head">
+                <h3 id="copyModalTitle">一键复制</h3>
+                <button class="modal-close" onclick="closeCopyModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid">
+                    <div class="modal-field">
+                        <label>开始行</label>
+                        <input id="copyStartRow" type="number" value="1" min="1" oninput="updateCopyPreview()">
+                    </div>
+                    <div class="modal-field">
+                        <label>结束行</label>
+                        <input id="copyEndRow" type="number" value="20" min="1" oninput="updateCopyPreview()">
+                    </div>
+                    <div class="modal-field" id="copyIPTypeFilterField">
+                        <label>IP 类型筛选</label>
+                        <select id="copyIPTypeFilter" onchange="updateCopyPreview()">
+                            <option value="all" selected>复制全部类型</option>
+                            <option value="ipv4">仅复制IPV4</option>
+                            <option value="ipv6">仅复制IPV6</option>
+                        </select>
+                    </div>
+                    <div class="modal-field" id="copyQualifiedFilterField">
+                        <label>复制合格结果</label>
+                        <select id="copyQualifiedFilter" onchange="updateCopyPreview()">
+                            <option value="all" selected>复制全部结果</option>
+                            <option value="qualified">仅复制合格</option>
+                            <option value="unqualified">仅复制不合格</option>
+                        </select>
+                    </div>
+                    <div class="modal-field full">
+                        <label>输出示例</label>
+                        <pre class="result-preview" id="copyPreview">暂无预览</pre>
+                    </div>
+                    <div class="modal-field full">
+                        <div class="field-head">
+                            <label>字段选择</label>
+                            <div class="field-head-actions">
+                                <button class="action-btn" id="copySelectAllBtn" onclick="toggleAllCopyFields()">全选</button>
+                                <button class="action-btn" onclick="selectCopyIPPortOnly()">仅 IP:PORT</button>
+                                <button class="action-btn" onclick="selectDefaultCopyFields()">默认选择</button>
+                            </div>
+                        </div>
+                        <div class="field-picker" id="copyFieldPicker"></div>
+                    </div>
+                    <div class="modal-field full">
+                        <label>自定义字段</label>
+                        <input id="copyCustomFields" type="text" placeholder="标题:内容，多项用逗号分隔，例如 备注:测试版,归属:cfdata" oninput="handleCustomCopyFieldsChange()">
+                    </div>
+                    <div class="modal-field full">
+                        <label>TXT 字段分隔符</label>
+                        <div class="separator-row">
+                            <select id="copyTextSeparatorPreset" onchange="applyTextSeparatorPreset('copy', this.value)">
+                                <option value="-" selected>-</option>
+                                <option value="|">|</option>
+                                <option value="space">空格</option>
+                                <option value="~">~</option>
+                                <option value="_">_</option>
+                                <option value="/">/</option>
+                                <option value="&#92;">&#92;</option>
+                                <option value=",">,</option>
+                                <option value=".">.</option>
+                                <option value="custom">自定义</option>
+                            </select>
+                            <input id="copyTextSeparatorCustom" type="text" value="-" placeholder="自定义分隔符" oninput="markTextSeparatorCustom('copy')">
+                        </div>
+                    </div>
+                    <div class="modal-field full">
+                        <label>输出顺序</label>
+                        <div class="order-list" id="copyOrderList"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions footer">
+                <button class="action-btn export-btn" onclick="copyConfiguredResults(event)">复制结果</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-mask" id="sortModalMask">
         <div class="result-modal">
             <div class="modal-head">
@@ -1929,25 +2183,16 @@
         </div>
     </div>
 
-    <div class="modal-mask" id="proxyWarningMask">
-        <div class="result-modal proxy-warning-modal">
+    <div class="modal-mask" id="noticeCardMask">
+        <div class="result-modal notice-modal">
             <div class="modal-head">
-                <button class="modal-close" onclick="cancelProxyWarning()">×</button>
+                <h3 id="noticeCardTitle">提示</h3>
+                <button class="modal-close" onclick="closeNoticeCard()">×</button>
             </div>
-            <div class="proxy-warning-card">
-                <h3 class="proxy-warning-title">🚨 代理检测警告</h3>
-                <div class="proxy-warning-country">读取到的网络标签：<span id="proxyWarningCountry">未知</span></div>
-                <p id="proxyWarningIntro">检测到您当前很可能处于代理/VPN环境中！</p>
-                <p>在代理状态下进行的IP优选测试结果将不准确，可能导致：</p>
-                <ul>
-                    <li>延迟数据失真，无法反映真实网络状况</li>
-                    <li>优选出的IP在直连环境下表现不佳</li>
-                    <li>测试结果对实际使用场景参考价值有限</li>
-                </ul>
-                <p><strong>建议操作：</strong>请关闭所有代理软件（VPN、科学上网工具等），确保处于直连网络环境后刷新页面重新测试。</p>
-                <div class="proxy-warning-actions">
-                    <button class="action-btn danger-btn" id="proxyWarningStopBtn" onclick="cancelProxyWarning()">停止测速</button>
-                    <button class="action-btn export-btn" id="proxyWarningContinueBtn" onclick="confirmProxyWarning()" disabled>强制继续 (5)</button>
+            <div class="notice-card">
+                <div class="notice-card-message" id="noticeCardMessage"></div>
+                <div class="modal-actions footer" id="noticeCardActions">
+                    <button class="action-btn export-btn" onclick="closeNoticeCard()">知道了</button>
                 </div>
             </div>
         </div>
@@ -1992,6 +2237,10 @@
         let officialTestCompletePending = false;
         let officialSpeedEndedByRateLimit = false;
         let officialContinueSpeedUnlocked = false;
+        let backgroundTaskActive = false;
+        let backgroundTaskFollowing = false;
+        let backgroundStatusTimer = null;
+        let backgroundTaskFocusedOnce = false;
         let webDebugMode = false;
         let webDebugErrors = [];
         let currentSpeedTestingIP = '';
@@ -2009,10 +2258,14 @@
         let proxyCountryCheckTimer = null;
         let proxyWarningSinglePass = false;
         let resultModalMode = 'scan';
+        let copyModalMode = 'scan';
         let sortModalMode = 'official';
         let resultFieldOrder = [];
         let resultCustomFields = [];
+        let copyFieldOrder = [];
+        let copyCustomFields = [];
         let autoUploadKeys = new Set();
+        let noticeConfirmAction = null;
         const githubAccountStorageKey = 'cfdata-github-accounts';
         const githubSessionTokens = new Map();
         const githubTokenCryptoSalt = 'cfdata-github-token-v1';
@@ -2251,11 +2504,12 @@
         }
 
         function resetAllConfig() {
-            if (!window.confirm('这会清掉本地缓存文件：ips-v4.txt、ips-v6.txt、locations.json、GeoLite2-ASN.mmdb。要继续吗？')) {
-                return;
-            }
+            showConfirmCard('这会清掉本地缓存文件：ips-v4.txt、ips-v6.txt、locations.json、GeoLite2-ASN.mmdb。\n要继续吗？', confirmResetAllConfig, '清理本地缓存');
+        }
+
+        function confirmResetAllConfig() {
             if (!wsSend({ type: 'reset_all_config' })) {
-                alert('与服务端的连接尚未就绪，请稍后再试');
+                showNoticeCard('与服务端的连接尚未就绪，请稍后再试');
                 return;
             }
             const menu = document.getElementById('settingsMenu');
@@ -2305,16 +2559,17 @@
         function startCompactIPv4() {
             if (requireProxyWarning(() => startCompactIPv4())) return;
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-                alert('与服务端的连接尚未就绪，请等待"已连接服务器"后再试');
+                showNoticeCard('与服务端的连接尚未就绪，请等待"已连接服务器"后再试');
                 return;
             }
             if (isTaskRunning) {
-                alert('当前已有任务运行，请先停止或等待完成');
+                showNoticeCard('当前已有任务运行，请先停止或等待完成');
                 return;
             }
-            if (!window.confirm('精简会覆盖本地 ips-v4.txt，仅保留探测到活跃的 /24 子网。继续？')) {
-                return;
-            }
+            showConfirmCard('精简会覆盖本地 ips-v4.txt。\n仅保留探测到活跃的 /24 子网。\n继续？', confirmStartCompactIPv4, '确认精简 IPv4 地址库');
+        }
+
+        function confirmStartCompactIPv4() {
             const btn = document.getElementById('btnCompactIPv4');
             if (btn) {
                 btn.disabled = true;
@@ -2374,7 +2629,9 @@
             ws.onclose = () => {
                 clearStopWatchdog();
                 resetCurrentSpeedButton();
-                if (isTaskRunning || officialBatchSpeedRunning || isStoppingTask) {
+                if (backgroundTaskActive) {
+                    log('连接断开，后台任务将继续运行');
+                } else if (isTaskRunning || officialBatchSpeedRunning || isStoppingTask) {
                     resetStoppedTaskUI('连接断开，当前任务状态已重置');
                 }
                 updateStatus('连接断开，3秒后重连...', false);
@@ -2401,6 +2658,44 @@
             box.scrollTop = box.scrollHeight;
         }
 
+        function showNoticeCard(message, title = '提示') {
+            noticeConfirmAction = null;
+            const mask = document.getElementById('noticeCardMask');
+            const titleEl = document.getElementById('noticeCardTitle');
+            const messageEl = document.getElementById('noticeCardMessage');
+            const actions = document.getElementById('noticeCardActions');
+            if (!mask || !titleEl || !messageEl || !actions) return;
+            titleEl.textContent = title;
+            messageEl.textContent = String(message || '');
+            actions.innerHTML = '<button class="action-btn export-btn" onclick="closeNoticeCard()">知道了</button>';
+            mask.classList.add('active');
+        }
+
+        function showConfirmCard(message, onConfirm, title = '确认操作') {
+            noticeConfirmAction = typeof onConfirm === 'function' ? onConfirm : null;
+            const mask = document.getElementById('noticeCardMask');
+            const titleEl = document.getElementById('noticeCardTitle');
+            const messageEl = document.getElementById('noticeCardMessage');
+            const actions = document.getElementById('noticeCardActions');
+            if (!mask || !titleEl || !messageEl || !actions) return;
+            titleEl.textContent = title;
+            messageEl.textContent = String(message || '');
+            actions.innerHTML = '<button class="action-btn" onclick="closeNoticeCard()">取消</button><button class="action-btn export-btn" onclick="confirmNoticeCard()">确认</button>';
+            mask.classList.add('active');
+        }
+
+        function closeNoticeCard() {
+            const mask = document.getElementById('noticeCardMask');
+            if (mask) mask.classList.remove('active');
+            noticeConfirmAction = null;
+        }
+
+        function confirmNoticeCard() {
+            const action = noticeConfirmAction;
+            closeNoticeCard();
+            if (typeof action === 'function') action();
+        }
+
         function requireProxyWarning(action) {
             if (proxyWarningSinglePass) {
                 proxyWarningSinglePass = false;
@@ -2425,7 +2720,7 @@
                 window.clearTimeout(proxyCountryCheckTimer);
                 proxyCountryCheckTimer = null;
                 proxyWarningPendingAction = null;
-                alert('连接未就绪，请等待重连后再试');
+                showNoticeCard('连接未就绪，请等待重连后再试');
             }
             return true;
         }
@@ -2464,38 +2759,48 @@
         }
 
         function showProxyWarningModal() {
-            const mask = document.getElementById('proxyWarningMask');
+            const mask = document.getElementById('noticeCardMask');
             const btn = document.getElementById('proxyWarningContinueBtn');
-            const countryEl = document.getElementById('proxyWarningCountry');
-            const introEl = document.getElementById('proxyWarningIntro');
-            if (!mask || !btn) return;
-            if (countryEl) countryEl.textContent = cfCountry || '未知';
-            if (introEl) introEl.textContent = proxyGeoCheckOK ? '检测到您当前很可能处于代理/VPN环境中！' : '地区验证失败，无法确认当前是否处于代理/VPN环境中！';
+            const titleEl = document.getElementById('noticeCardTitle');
+            const messageEl = document.getElementById('noticeCardMessage');
+            const actions = document.getElementById('noticeCardActions');
+            if (!mask || !titleEl || !messageEl || !actions) return;
+            titleEl.textContent = '代理检测警告';
+            messageEl.textContent = [
+                `读取到的网络标签：${cfCountry || '未知'}`,
+                proxyGeoCheckOK ? '检测到您当前很可能处于代理/VPN环境中。' : '地区验证失败，无法确认当前是否处于代理/VPN环境中。',
+                '在代理状态下进行的 IP 优选测试结果将不准确。',
+                '建议关闭代理软件后刷新页面重新测试。',
+            ].join('\n');
+            actions.innerHTML = '<button class="action-btn danger-btn" onclick="cancelProxyWarning()">停止测速</button><button class="action-btn export-btn" id="proxyWarningContinueBtn" onclick="confirmProxyWarning()" disabled>强制继续 (5)</button>';
             mask.classList.add('active');
             let remaining = 5;
-            btn.disabled = true;
-            btn.textContent = `强制继续 (${remaining})`;
+            const nextBtn = document.getElementById('proxyWarningContinueBtn');
+            if (!nextBtn) return;
+            nextBtn.disabled = true;
+            nextBtn.textContent = `强制继续 (${remaining})`;
             if (proxyWarningCountdownTimer) window.clearInterval(proxyWarningCountdownTimer);
             proxyWarningCountdownTimer = window.setInterval(() => {
                 remaining--;
                 if (remaining <= 0) {
                     window.clearInterval(proxyWarningCountdownTimer);
                     proxyWarningCountdownTimer = null;
-                    btn.disabled = false;
-                    btn.textContent = '强制继续';
+                    nextBtn.disabled = false;
+                    nextBtn.textContent = '强制继续';
                     return;
                 }
-                btn.textContent = `强制继续 (${remaining})`;
+                nextBtn.textContent = `强制继续 (${remaining})`;
             }, 1000);
         }
 
         function hideProxyWarningModal() {
-            const mask = document.getElementById('proxyWarningMask');
+            const mask = document.getElementById('noticeCardMask');
             if (mask) mask.classList.remove('active');
             if (proxyWarningCountdownTimer) {
                 window.clearInterval(proxyWarningCountdownTimer);
                 proxyWarningCountdownTimer = null;
             }
+            noticeConfirmAction = null;
         }
 
         function cancelProxyWarning() {
@@ -2661,6 +2966,153 @@
                 sp.className = 'btn-spinner';
             }
             btn.disabled = false;
+            updateBackgroundButton();
+        }
+
+        function updateBackgroundButton() {
+            const btn = document.getElementById('btnRunInBackground');
+            if (!btn) return;
+            const visible = isTaskRunning && !backgroundTaskActive;
+            btn.style.display = visible ? 'inline-flex' : 'none';
+            btn.disabled = isStoppingTask;
+            if (!visible) hideBackgroundConfirmCard();
+        }
+
+        function runTaskInBackground() {
+            if (!isTaskRunning) return;
+            const card = document.getElementById('backgroundConfirmCard');
+            if (card) card.classList.add('active');
+        }
+
+        function hideBackgroundConfirmCard() {
+            const card = document.getElementById('backgroundConfirmCard');
+            if (card) card.classList.remove('active');
+        }
+
+        function confirmRunTaskInBackground() {
+            if (!isTaskRunning) return;
+            if (!wsSend({ type: 'run_in_background', data: {} })) {
+                showNoticeCard('连接未就绪，请等待重连后再试');
+                return;
+            }
+            hideBackgroundConfirmCard();
+            updateBackgroundButton();
+        }
+
+        function stopBackgroundTask() {
+            if (!wsSend({ type: 'stop_task', data: {} })) {
+                showNoticeCard('连接未就绪，无法发送停止命令');
+                return;
+            }
+            isStoppingTask = true;
+            showStoppingProgress();
+            startStopWatchdog();
+        }
+
+        function followBackgroundTask() {
+            if (!wsSend({ type: 'follow_background_task', data: {} })) {
+                showNoticeCard('连接未就绪，请等待重连后再试');
+                return;
+            }
+        }
+
+        function startBackgroundStatusPolling() {
+            if (backgroundStatusTimer) return;
+            backgroundStatusTimer = window.setInterval(() => {
+                if (!backgroundTaskActive || backgroundTaskFollowing) return;
+                wsSend({ type: 'get_background_task_status', data: {} });
+            }, 1000);
+        }
+
+        function stopBackgroundStatusPolling() {
+            if (!backgroundStatusTimer) return;
+            window.clearInterval(backgroundStatusTimer);
+            backgroundStatusTimer = null;
+        }
+
+        function applyBackgroundSnapshot(snapshot) {
+            if (!snapshot) return;
+            backgroundTaskActive = !!snapshot.running;
+            isTaskRunning = !!snapshot.running;
+            isStoppingTask = false;
+            renderBackgroundStatusCard(snapshot);
+            if (!snapshot.running) {
+                backgroundTaskActive = false;
+                backgroundTaskFollowing = false;
+                isStoppingTask = false;
+                resetButton('✨ 开始扫描与测试');
+                updateBackgroundButton();
+                stopBackgroundStatusPolling();
+                return;
+            }
+            if ((snapshot.mode === 'official' || snapshot.mode === 'nsb') && !backgroundTaskFocusedOnce) {
+                backgroundTaskFocusedOnce = true;
+                if (currentMode !== snapshot.mode) switchMode(snapshot.mode);
+                runningTaskMode = snapshot.mode;
+            }
+            if (snapshot.mode === 'official' || snapshot.mode === 'nsb') runningTaskMode = snapshot.mode;
+            runningTaskLabel = snapshot.label || '后台任务';
+            runningTaskTab = 'scan';
+            applyBackgroundParams(snapshot.params || {});
+            setStartLoading(getRunningButtonText());
+            progressBox.style.display = 'block';
+            updateProgress(snapshot.current || 0, snapshot.total || 1, snapshot.phase || '后台任务');
+            if (!backgroundTaskFollowing) startBackgroundStatusPolling();
+        }
+
+        function renderBackgroundStatusCard(snapshot) {
+            const card = document.getElementById('backgroundStatusCard');
+            if (!card) return;
+            card.classList.toggle('active', !!snapshot.running);
+            document.getElementById('backgroundStatusTitle').textContent = `🕘 ${snapshot.label || '后台任务运行中'}`;
+            const source = snapshot.params?.sourceURL || snapshot.params?.fileName || (snapshot.mode === 'official' ? '官方内置地址库' : '') || snapshot.params?.outFile || snapshot.params?.dc || '-';
+            document.getElementById('backgroundSource').textContent = source;
+            document.getElementById('backgroundPhase').textContent = snapshot.phase || '-';
+            const current = snapshot.current || 0;
+            const total = snapshot.total || 0;
+            const percent = Number.isFinite(snapshot.percent) ? snapshot.percent : (total > 0 ? current / total * 100 : 0);
+            document.getElementById('backgroundProgressText').textContent = total > 0 ? `${current}/${total} (${Math.round(percent)}%)` : '-';
+            document.getElementById('backgroundResultCount').textContent = snapshot.resultCount || 0;
+            document.getElementById('backgroundSpeedCount').textContent = snapshot.speedCount || 0;
+            const extra = document.getElementById('backgroundExtraItem');
+            const showExtra = (snapshot.testCount || 0) > 0 || (snapshot.dcCount || 0) > 0;
+            if (extra) extra.style.display = showExtra ? 'block' : 'none';
+            document.getElementById('backgroundExtraCount').textContent = `${snapshot.testCount || 0} / ${snapshot.dcCount || 0}`;
+            document.getElementById('backgroundMessage').textContent = snapshot.message || '-';
+            const followBtn = document.getElementById('btnFollowBackground');
+            if (followBtn) {
+                followBtn.disabled = backgroundTaskFollowing;
+                followBtn.textContent = backgroundTaskFollowing ? '📡 正在跟随实时数据' : '📡 跟随实时数据';
+            }
+        }
+
+        function applyBackgroundParams(params) {
+            const setValue = (id, value) => {
+                const el = document.getElementById(id);
+                if (el === null || el === undefined || value === undefined || value === null || value === '') return;
+                el.value = value;
+            };
+            setValue('ipType', params.ipType);
+            setValue('scanThreads', params.threads || params.maxThreads);
+            setValue('testPort', params.port);
+            setValue('testDelay', params.delay);
+            setValue('officialSpeedLimit', params.speedLimit);
+            setValue('officialSpeedMin', params.speedMin);
+            setValue('officialTargetDC', params.dc);
+            setValue('nsbThreads', params.maxThreads);
+            setValue('nsbFallbackPort', params.fallbackPort);
+            setValue('nsbResultLimit', params.resultLimit);
+            setValue('nsbSpeedLimit', params.speedLimit);
+            setValue('nsbSpeedMin', params.speedMin);
+            setValue('nsbSpeedTest', params.speedTest);
+            setValue('nsbTargetDC', params.dc);
+            setValue('nsbOutFile', params.outFile);
+            if (params.enableTLS !== undefined) setValue('nsbTls', params.enableTLS ? 'on' : 'off');
+            syncOfficialSpeedConfigState();
+            syncNSBSpeedConfigState();
+            updateOfficialAutoSpeedControls();
+            updateNSBSpeedControls();
+            updateNSBCompactToggle();
         }
 
         function getRunningButtonText() {
@@ -2700,9 +3152,16 @@
         function finishRunningTask(buttonText = '✨ 开始扫描与测试') {
             isTaskRunning = false;
             isStoppingTask = false;
+            backgroundTaskActive = false;
+            backgroundTaskFollowing = false;
+            backgroundTaskFocusedOnce = false;
+            stopBackgroundStatusPolling();
             clearStopWatchdog();
             clearRunningTaskLabel();
             resetButton(buttonText);
+            updateBackgroundButton();
+            const card = document.getElementById('backgroundStatusCard');
+            if (card) card.classList.remove('active');
             updateNSBCompactToggle();
         }
 
@@ -2845,7 +3304,7 @@
             if (isTaskRunning) {
                 const compactToggle = document.getElementById('nsbCompactView');
                 if (compactToggle) compactToggle.value = nsbCompactView ? 'compact' : 'full';
-                alert('非标精简表格开关只能在任务开始前选择，本次任务启动后输出内容已固定。');
+                showNoticeCard('非标精简表格开关只能在任务开始前选择，本次任务启动后输出内容已固定。');
                 return;
             }
             nsbCompactView = !!enabled;
@@ -3342,7 +3801,7 @@
                 isTaskRunning = false;
                 showDCSelection(dcList);
                 finishRunningTask('✨ 重新开始扫描');
-                alert('连接未就绪，请等待重连后再试');
+                showNoticeCard('连接未就绪，请等待重连后再试');
                 return;
             }
             switchTab('test');
@@ -3498,12 +3957,12 @@
             if (requireProxyWarning(() => startOfficialBatchSpeed(auto, continued))) return false;
             if (officialBatchSpeedRunning) return false;
             if (!testData.length) {
-                if (!auto) alert('请先完成数据中心详细测试');
+                if (!auto) showNoticeCard('请先完成数据中心详细测试');
                 return false;
             }
             const cfg = syncOfficialSpeedConfigState();
             if (cfg.speedLimit <= 0) {
-                if (!auto) alert('测速结果上限必须大于 0');
+                if (!auto) showNoticeCard('测速结果上限必须大于 0');
                 else log('官方自动测速已跳过：测速结果上限为 0');
                 return false;
             }
@@ -3526,7 +3985,7 @@
                 officialBatchSpeedRunning = false;
                 finishRunningTask('✨ 开始扫描与测试');
                 updateBatchSpeedButton();
-                alert('连接未就绪，请等待重连后再试');
+                showNoticeCard('连接未就绪，请等待重连后再试');
                 return false;
             }
             return true;
@@ -3536,7 +3995,7 @@
             if (requireProxyWarning(() => startNSBBatchSpeed(continued))) return false;
             if (nsbBatchSpeedRunning) return false;
             if (currentMode !== 'nsb') {
-                alert('请切换到非标模式后再测速');
+                showNoticeCard('请切换到非标模式后再测速');
                 return false;
             }
             const enableSpeedTest = document.getElementById('enableSpeedTest');
@@ -3546,16 +4005,16 @@
             }
             const rows = getNSBSpeedTargetRows();
             if (!rows.length) {
-                alert('当前没有可测速的非标结果');
+                showNoticeCard('当前没有可测速的非标结果');
                 return false;
             }
             const cfg = syncNSBSpeedConfigState();
             if (cfg.speedTest <= 0) {
-                alert('测速线程必须大于 0');
+                showNoticeCard('测速线程必须大于 0');
                 return false;
             }
             if (cfg.speedLimit <= 0) {
-                alert('测速结果上限必须大于 0');
+                showNoticeCard('测速结果上限必须大于 0');
                 return false;
             }
             nsbBatchSpeedRunning = true;
@@ -3576,7 +4035,7 @@
                 nsbBatchSpeedRunning = false;
                 finishRunningTask('✨ 开始扫描与测试');
                 updateNSBSpeedButtons();
-                alert('连接未就绪，请等待重连后再试');
+                showNoticeCard('连接未就绪，请等待重连后再试');
                 return false;
             }
             return true;
@@ -3652,16 +4111,7 @@
 
         function startTask() {
             if (isTaskRunning || officialBatchSpeedRunning || nsbBatchSpeedRunning) {
-                if (confirm(getStopConfirmText())) {
-                    if (!wsSend({ type: 'stop_task', data: {} })) {
-                        alert('连接未就绪，无法发送停止命令');
-                        return;
-                    }
-                    isStoppingTask = true;
-                    setStartLoading('正在停止...');
-                    showStoppingProgress();
-                    startStopWatchdog();
-                }
+                showConfirmCard(getStopConfirmText(), confirmStopCurrentTask, '终止当前任务');
                 return;
             }
 
@@ -3672,6 +4122,17 @@
             } else {
                 startNSBTask();
             }
+        }
+
+        function confirmStopCurrentTask() {
+            if (!wsSend({ type: 'stop_task', data: {} })) {
+                showNoticeCard('连接未就绪，无法发送停止命令');
+                return;
+            }
+            isStoppingTask = true;
+            setStartLoading('正在停止...');
+            showStoppingProgress();
+            startStopWatchdog();
         }
 
         function startOfficialTask() {
@@ -3718,7 +4179,7 @@
                 officialAutoSpeedPending = false;
                 officialAutoStage = '';
                 finishRunningTask('✨ 开始扫描与测试');
-                alert('连接未就绪，请等待重连后再试');
+                showNoticeCard('连接未就绪，请等待重连后再试');
                 return;
             }
             switchTab('scan');
@@ -3745,7 +4206,7 @@
             const hasFile = !!uploadedFileContent.trim();
             const hasURL = !!sourceURL;
             if (hasFile === hasURL) {
-                alert('请选择本地文件或填写网络 URL（二选一）');
+                showNoticeCard('请选择本地文件或填写网络 URL（二选一）');
                 return;
             }
 
@@ -3772,15 +4233,15 @@
             setNSBTableQualifiedFilter('all');
 
             if (isNaN(speedTestInput) || speedTestInput < 0) {
-                alert('测速线程必须为非负整数');
+                showNoticeCard('测速线程必须为非负整数');
                 return;
             }
             if (resultLimit <= 0) {
-                alert('延迟结果上限必须填写非 0 正整数');
+                showNoticeCard('延迟结果上限必须填写非 0 正整数');
                 return;
             }
             if (fallbackPort <= 0 || fallbackPort > 65535) {
-                alert('备用端口必须为 1-65535');
+                showNoticeCard('备用端口必须为 1-65535');
                 return;
             }
 
@@ -3827,7 +4288,7 @@
                 }
             })) {
                 finishRunningTask('✨ 开始扫描与测试');
-                alert('连接未就绪，请等待重连后再试');
+                showNoticeCard('连接未就绪，请等待重连后再试');
             }
         }
 
@@ -3869,18 +4330,18 @@
         ];
 
         function openResultModal(mode) {
-            resultModalMode = mode;
-            const rows = currentMode === 'nsb' ? getNSBResultObjects() : (mode === 'test' ? testData.map(testResultToObject) : scanData.map(scanResultToObject));
-            if (!rows.length) return alert('暂无可操作结果');
+            resultModalMode = currentMode === 'nsb' ? 'nsb' : mode;
+            const rows = getCurrentResultRows(resultModalMode);
+            if (!rows.length) return showNoticeCard('暂无可操作结果');
             document.getElementById('resultModalTitle').textContent = '结果操作';
             const formatSelect = document.getElementById('resultFormat');
             if (formatSelect && !formatSelect.value) formatSelect.value = 'txt';
             const nameInput = document.getElementById('resultFileName');
-            if (nameInput && !nameInput.value.trim()) nameInput.value = currentMode === 'nsb' ? 'Cloudflare_NSB_Results' : (resultModalMode === 'test' ? 'Cloudflare_SpeedTest_Results' : 'Cloudflare_Scan_Results');
+            if (nameInput && !nameInput.value.trim()) nameInput.value = resultModalMode === 'nsb' ? 'Cloudflare_NSB_Results' : (resultModalMode === 'test' ? 'Cloudflare_SpeedTest_Results' : 'Cloudflare_Scan_Results');
             const filterField = document.getElementById('resultIPTypeFilterField');
-            if (filterField) filterField.style.display = currentMode === 'nsb' ? '' : 'none';
+            if (filterField) filterField.style.display = resultModalMode === 'nsb' ? '' : 'none';
             const filterSelect = document.getElementById('resultIPTypeFilter');
-            if (filterSelect && currentMode === 'official') filterSelect.value = 'all';
+            if (filterSelect && resultModalMode !== 'nsb') filterSelect.value = 'all';
             const qualifiedField = document.getElementById('resultQualifiedFilterField');
             if (qualifiedField) qualifiedField.style.display = '';
             if (!resultFieldOrder.length) resultFieldOrder = getDefaultResultFieldOrder(document.getElementById('resultFormat').value);
@@ -3896,7 +4357,7 @@
         function openSortModal(mode) {
             sortModalMode = mode === 'nsb' ? 'nsb' : 'official';
             const count = sortModalMode === 'nsb' ? (nsbRows.length || nsbLiveRows.length) : testData.length;
-            if (!count) return alert('暂无可排序结果');
+            if (!count) return showNoticeCard('暂无可排序结果');
             document.getElementById('sortModalTitle').textContent = sortModalMode === 'nsb' ? '非标测速一键排序' : '官方详细测试一键排序';
             document.getElementById('sortModalMask').classList.add('active');
         }
@@ -3966,7 +4427,7 @@
 
         function applySortModal() {
             const priorities = getSortPriorities();
-            if (!priorities.length) return alert('请选择排序优先级');
+            if (!priorities.length) return showNoticeCard('请选择排序优先级');
             if (sortModalMode === 'nsb') applyNSBSort(priorities);
             else applyOfficialTestSort(priorities);
             closeSortModal();
@@ -4020,7 +4481,7 @@
         }
 
         function getDefaultResultFieldOrderFor(mode, format) {
-            if (format === 'txt') return currentMode === 'official' ? ['ipport', 'dc', 'dcCountry'] : ['ipport', 'dc', 'loc'];
+            if (format === 'txt') return mode === 'nsb' ? ['ipport', 'dc', 'loc'] : ['ipport', 'dc', 'dcCountry'];
             if (format === 'csv') return getCompactResultFieldOrderFor(mode);
             const rows = getCurrentResultRows(mode);
             if (!rows.length) return ['ipport'];
@@ -4030,7 +4491,7 @@
         function getAllResultFieldOrder() {
             const rows = getCurrentResultRows(resultModalMode);
             if (!rows.length) return ['ipport'];
-            if (currentMode === 'official') {
+            if (resultModalMode !== 'nsb') {
                 return getOfficialResultFieldOrder().filter((key) => rows.some((r) => String(r[key] ?? '').trim() !== ''));
             }
             return RESULT_FIELDS.filter((f) => rows.some((r) => String(r[f.key] ?? '').trim() !== '') && f.key !== 'ipport').map((f) => f.key);
@@ -4041,7 +4502,7 @@
         }
 
         function getCompactResultFieldOrderFor(mode) {
-            if (currentMode === 'nsb') return ['ip', 'port', 'tls', 'lossRate', 'latency', 'speed', 'outboundIP', 'ipType', 'dc', 'loc', 'region', 'city', 'asnNumber', 'asnOrg'];
+            if (mode === 'nsb') return ['ip', 'port', 'tls', 'lossRate', 'latency', 'speed', 'outboundIP', 'ipType', 'dc', 'loc', 'region', 'city', 'asnNumber', 'asnOrg'];
             return getOfficialResultFieldOrder(mode);
         }
 
@@ -4055,6 +4516,8 @@
             const format = document.getElementById('resultFormat').value;
             if (!resultFieldOrder.length) resultFieldOrder = getDefaultResultFieldOrder(format);
             if (format === 'txt' && !resultFieldOrder.includes('ipport')) resultFieldOrder.unshift('ipport');
+            const separatorField = document.getElementById('resultTextSeparatorField');
+            if (separatorField) separatorField.style.display = format === 'txt' ? '' : 'none';
             const rows = getCurrentResultRows(resultModalMode);
             const available = RESULT_FIELDS.filter((f) => f.key === 'ipport' || rows.some((r) => String(r[f.key] ?? '').trim() !== '')).concat(resultCustomFields);
             document.querySelectorAll('.github-field').forEach((el) => el.style.display = '');
@@ -4232,7 +4695,7 @@
                 githubSessionTokens.set(name, payload.token);
                 next.tokenCipher = await encryptGitHubToken(name, payload.token);
                 if (!next.tokenCipher) {
-                    alert('当前浏览器不支持 WebCrypto，无法安全保存 token；本次仍会上传，但不会持久保存 token');
+                    showNoticeCard('当前浏览器不支持 WebCrypto，无法安全保存 token；本次仍会上传，但不会持久保存 token');
                 }
             } else {
                 githubSessionTokens.delete(name);
@@ -4348,10 +4811,167 @@
             renderResultFieldOptions();
         }
 
+        function openCopyModal(mode) {
+            copyModalMode = currentMode === 'nsb' ? 'nsb' : mode;
+            document.getElementById('copyModalTitle').textContent = copyModalMode === 'nsb' ? '非标结果一键复制' : (copyModalMode === 'test' ? '官方详细测试一键复制' : '官方扫描结果一键复制');
+            const filterField = document.getElementById('copyIPTypeFilterField');
+            if (filterField) filterField.style.display = copyModalMode === 'nsb' ? '' : 'none';
+            const filterSelect = document.getElementById('copyIPTypeFilter');
+            if (filterSelect && copyModalMode !== 'nsb') filterSelect.value = 'all';
+            const qualifiedField = document.getElementById('copyQualifiedFilterField');
+            if (qualifiedField) qualifiedField.style.display = '';
+            const rows = getCopyRowsBeforeRange();
+            if (!rows.length) return showNoticeCard('暂无可复制结果');
+            if (!copyFieldOrder.length) copyFieldOrder = getDefaultResultFieldOrderFor(copyModalMode, 'txt');
+            renderCopyFieldOptions();
+            document.getElementById('copyModalMask').classList.add('active');
+        }
+
+        function closeCopyModal() {
+            document.getElementById('copyModalMask').classList.remove('active');
+        }
+
+        function getCopyRowsBeforeRange() {
+            const filter = document.getElementById('copyIPTypeFilter')?.value || 'all';
+            const qualified = document.getElementById('copyQualifiedFilter')?.value || 'all';
+            if (currentMode === 'nsb') {
+                return getNSBResultObjects().filter((row) => matchesIPTypeFilter(row.ipType, filter) && matchesQualifiedFilter(row, qualified));
+            }
+            const rows = getCurrentResultRows(copyModalMode);
+            return rows.filter((row) => matchesIPTypeFilter(getOfficialIPType(row), filter) && matchesOfficialQualifiedFilter(row, qualified));
+        }
+
+        function getSelectedCopyRows() {
+            const rows = getCopyRowsBeforeRange();
+            const start = Math.max(1, parseInt(document.getElementById('copyStartRow')?.value || '1', 10) || 1);
+            const end = Math.max(start, parseInt(document.getElementById('copyEndRow')?.value || '20', 10) || 20);
+            return rows.slice(start - 1, end).map((row) => {
+                const next = { ...row };
+                for (const field of copyCustomFields) next[field.key] = field.value;
+                return next;
+            });
+        }
+
+        function getAvailableCopyFieldKeys() {
+            const rows = getCopyRowsBeforeRange();
+            return RESULT_FIELDS.filter((f) => f.key === 'ipport' || rows.some((r) => String(r[f.key] ?? '').trim() !== '')).concat(copyCustomFields).map((f) => f.key);
+        }
+
+        function areAllCopyFieldsSelected() {
+            const available = getAvailableCopyFieldKeys();
+            return available.length > 0 && available.every((key) => copyFieldOrder.includes(key));
+        }
+
+        function updateCopyFieldQuickButtons() {
+            const btn = document.getElementById('copySelectAllBtn');
+            if (!btn) return;
+            btn.textContent = areAllCopyFieldsSelected() ? '全部选' : '全选';
+            btn.title = areAllCopyFieldsSelected() ? '恢复默认选择' : '选择全部可用字段';
+        }
+
+        function renderCopyFieldOptions() {
+            if (!copyFieldOrder.length) copyFieldOrder = getDefaultResultFieldOrderFor(copyModalMode, 'txt');
+            if (!copyFieldOrder.includes('ipport')) copyFieldOrder.unshift('ipport');
+            const rows = getCopyRowsBeforeRange();
+            const available = RESULT_FIELDS.filter((f) => f.key === 'ipport' || rows.some((r) => String(r[f.key] ?? '').trim() !== '')).concat(copyCustomFields);
+            document.getElementById('copyFieldPicker').innerHTML = available.map((f) => `<label class="field-pill"><input type="checkbox" value="${f.key}" ${copyFieldOrder.includes(f.key) ? 'checked' : ''} onchange="toggleCopyField('${f.key}', this.checked)"> ${f.label}</label>`).join('');
+            updateCopyFieldQuickButtons();
+            renderCopyOrderList();
+            updateCopyPreview();
+        }
+
+        function renderCopyOrderList() {
+            const byKey = Object.fromEntries(RESULT_FIELDS.concat(copyCustomFields).map((f) => [f.key, f]));
+            document.getElementById('copyOrderList').innerHTML = copyFieldOrder.map((key, idx) => `<div class="order-item"><span>${byKey[key]?.label || key}</span><span><button onclick="moveCopyField(${idx}, -1)">↑</button> <button onclick="moveCopyField(${idx}, 1)">↓</button></span></div>`).join('');
+            updateCopyPreview();
+        }
+
+        function handleCustomCopyFieldsChange() {
+            const next = parseResultCustomFields(document.getElementById('copyCustomFields')?.value || '');
+            const nextKeys = new Set(next.map((f) => f.key));
+            copyFieldOrder = copyFieldOrder.filter((key) => !copyCustomFields.some((f) => f.key === key) || nextKeys.has(key));
+            copyCustomFields = next;
+            for (const field of copyCustomFields) {
+                if (!copyFieldOrder.includes(field.key)) copyFieldOrder.push(field.key);
+            }
+            renderCopyFieldOptions();
+        }
+
+        function toggleCopyField(key, checked) {
+            if (checked && !copyFieldOrder.includes(key)) copyFieldOrder.push(key);
+            if (!checked) copyFieldOrder = copyFieldOrder.filter((k) => k !== key);
+            renderCopyOrderList();
+        }
+
+        function moveCopyField(index, delta) {
+            const next = index + delta;
+            if (next < 0 || next >= copyFieldOrder.length) return;
+            [copyFieldOrder[index], copyFieldOrder[next]] = [copyFieldOrder[next], copyFieldOrder[index]];
+            renderCopyFieldOptions();
+        }
+
+        function toggleAllCopyFields() {
+            if (areAllCopyFieldsSelected()) {
+                selectDefaultCopyFields();
+                return;
+            }
+            copyFieldOrder = getAvailableCopyFieldKeys();
+            renderCopyFieldOptions();
+        }
+
+        function selectCopyIPPortOnly() {
+            copyFieldOrder = ['ipport'];
+            renderCopyFieldOptions();
+        }
+
+        function selectDefaultCopyFields() {
+            copyFieldOrder = getDefaultResultFieldOrderFor(copyModalMode, 'txt');
+            renderCopyFieldOptions();
+        }
+
+        function buildCopyContent() {
+            const rows = getSelectedCopyRows();
+            if (!rows.length) throw new Error('暂无可复制结果');
+            const fields = copyFieldOrder.length ? copyFieldOrder : getDefaultResultFieldOrderFor(copyModalMode, 'txt');
+            return buildResultContent('txt', rows, fields, getTextSeparator('copy'));
+        }
+
+        function buildCopyPreview() {
+            const rows = getSelectedCopyRows();
+            if (!rows.length) return '暂无预览';
+            const fields = copyFieldOrder.length ? copyFieldOrder : getDefaultResultFieldOrderFor(copyModalMode, 'txt');
+            const first = rows[0];
+            const ipport = first.ipport || `${first.ip || ''}:${first.port || ''}`;
+            const extras = fields.filter((key) => key !== 'ipport').map((key) => first[key]).filter((value) => String(value ?? '').trim() !== '');
+            const separator = getTextSeparator('copy');
+            return extras.length ? `${ipport}#${extras.join(separator)}` : ipport;
+        }
+
+        function updateCopyPreview() {
+            const el = document.getElementById('copyPreview');
+            if (!el) return;
+            try {
+                el.textContent = buildCopyPreview();
+            } catch (err) {
+                el.textContent = err.message || '预览失败';
+            }
+        }
+
+        function copyConfiguredResults(event) {
+            let content;
+            try {
+                content = buildCopyContent();
+            } catch (err) {
+                showNoticeCard(err.message || '暂无可复制结果');
+                return;
+            }
+            copyToClipboard(content, event);
+        }
+
         function getCurrentResultRows(mode) {
             if (currentMode === 'nsb') return getNSBResultObjects();
-            const rows = mode === 'test' ? testData.map(testResultToObject) : scanData.map(scanResultToObject);
-            return rows.slice().sort(compareOfficialResultObjects);
+            if (mode === 'test') return testData.map(testResultToObject);
+            return scanData.map(scanResultToObject).slice().sort(compareOfficialResultObjects);
         }
 
         function getCurrentExportRows(mode) {
@@ -4417,22 +5037,44 @@
             const rows = getSelectedResultRows();
             if (!rows.length) throw new Error('暂无可操作结果');
             const fields = resultFieldOrder.length ? resultFieldOrder : getDefaultResultFieldOrder(format);
-            return buildResultContent(format, rows, fields);
+            return buildResultContent(format, rows, fields, getTextSeparator('result'));
         }
 
-        function buildDisplayedResultContent(mode) {
-            const rows = getDisplayedResultRows(mode).slice(0, 10);
-            if (!rows.length) throw new Error('当前展示表格暂无可复制结果');
-            return buildResultContent('txt', rows, getDefaultResultFieldOrderFor(mode, 'txt'));
+        function applyTextSeparatorPreset(prefix, value) {
+            const input = document.getElementById(`${prefix}TextSeparatorCustom`);
+            if (input && value === 'custom') {
+                input.value = '';
+                input.focus();
+            } else if (input) {
+                input.value = value === 'space' ? '空格' : value;
+            }
+            updateTextSeparatorPreview(prefix);
         }
 
-        function buildResultContent(format, rows, fields) {
+        function markTextSeparatorCustom(prefix) {
+            const preset = document.getElementById(`${prefix}TextSeparatorPreset`);
+            if (preset && preset.value !== 'custom') preset.value = 'custom';
+            updateTextSeparatorPreview(prefix);
+        }
+
+        function updateTextSeparatorPreview(prefix) {
+            if (prefix === 'copy') updateCopyPreview();
+            else updateResultPreview();
+        }
+
+        function getTextSeparator(prefix) {
+            const raw = document.getElementById(`${prefix}TextSeparatorCustom`)?.value ?? '-';
+            if (raw === '空格') return ' ';
+            return raw;
+        }
+
+        function buildResultContent(format, rows, fields, textSeparator = '-') {
             if (!rows.length) throw new Error('暂无可操作结果');
             if (format === 'txt') {
                 return rows.map((r) => {
                     const ipport = r.ipport || `${r.ip || ''}:${r.port || ''}`;
                     const extras = fields.filter((k) => k !== 'ipport').map((k) => r[k]).filter((v) => String(v ?? '').trim() !== '');
-                    return extras.length ? `${ipport}#${extras.join('-')}` : ipport;
+                    return extras.length ? `${ipport}#${extras.join(textSeparator)}` : ipport;
                 }).join('\n') + '\n';
             }
             const byKey = Object.fromEntries(RESULT_FIELDS.concat(resultCustomFields).map((f) => [f.key, f]));
@@ -4466,7 +5108,7 @@
             if (format === 'txt') {
                 const ipport = first.ipport || `${first.ip || ''}:${first.port || ''}`;
                 const extras = fields.filter((k) => k !== 'ipport').map((k) => first[k]).filter((v) => String(v ?? '').trim() !== '');
-                return extras.length ? `${ipport}#${extras.join('-')}` : ipport;
+                return extras.length ? `${ipport}#${extras.join(getTextSeparator('result'))}` : ipport;
             }
             const byKey = Object.fromEntries(RESULT_FIELDS.concat(resultCustomFields).map((f) => [f.key, f]));
             const headers = fields.map((k) => byKey[k]?.label || k).join(',');
@@ -4524,22 +5166,11 @@
             try {
                 content = buildSelectedResultContent(format);
             } catch (err) {
-                alert(err.message || '暂无可操作结果');
+                showNoticeCard(err.message || '暂无可操作结果');
                 return;
             }
             const name = document.getElementById('resultFileName').value.trim() || 'cfdata-results';
             downloadFile(content, name, format);
-        }
-
-        function copyDisplayedResults(mode, event) {
-            let content;
-            try {
-                content = buildDisplayedResultContent(mode);
-            } catch (err) {
-                alert(err.message || '当前展示表格暂无可复制结果');
-                return;
-            }
-            copyToClipboard(content, event);
         }
 
         async function uploadSelectedResultsToGitHub() {
@@ -4549,11 +5180,11 @@
             try {
                 content = quickFile ? quickFile.content : buildSelectedResultContent(format);
             } catch (err) {
-                alert(err.message || '暂无可操作结果');
+                showNoticeCard(err.message || '暂无可操作结果');
                 return;
             }
             const repoParts = document.getElementById('githubRepo').value.trim().split('/');
-            if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) return alert('仓库格式应为 owner/repo');
+            if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) return showNoticeCard('仓库格式应为 owner/repo');
             const payload = {
                 token: document.getElementById('githubToken').value.trim(),
                 owner: repoParts[0], repo: repoParts[1],
@@ -4562,7 +5193,7 @@
                 message: document.getElementById('githubMessage').value.trim() || 'update cfdata results',
                 content,
             };
-            if (!payload.token) return alert('Token 不能为空');
+            if (!payload.token) return showNoticeCard('Token 不能为空');
             await saveCurrentGitHubAccount(payload);
             sendGitHubUpload(payload);
             log('已提交 GitHub 上传请求');
@@ -4570,7 +5201,7 @@
 
         async function autoUploadNSBResults() {
             const value = document.getElementById('nsbAutoUploadAccount')?.value || '';
-            await autoUploadResults(value, 'scan', '自动上传已提交');
+            await autoUploadResults(value, 'nsb', '自动上传已提交');
         }
 
         async function autoUploadOfficialResults() {
@@ -4748,7 +5379,7 @@
                         renderRawURLCopy(msg.data.rawURL || '');
                     }
                     log(`GitHub 上传完成: ${msg.data.rawURL || msg.data.path || ''}`);
-                    alert(`GitHub 上传完成\n${msg.data.path || ''}`);
+                    showNoticeCard(`GitHub 上传完成\n${msg.data.path || ''}`);
                     break;
 
                 case 'github_upload_status':
@@ -4758,7 +5389,7 @@
                 case 'github_upload_error':
                     recordWebDebugError('github_upload_error', msg.data?.message || msg.data || 'GitHub 上传失败');
                     if (msg.data.silent) {
-                        alert(msg.data.message || 'GitHub 自动上传失败');
+                        showNoticeCard(msg.data.message || 'GitHub 自动上传失败');
                     } else {
                         setGitHubUploadStatus(msg.data.message || 'GitHub 上传失败', 'error');
                     }
@@ -4766,7 +5397,6 @@
                     break;
 
                 case 'nsb_progress':
-                    if (isStoppingTask) break;
                     if (currentMode === 'nsb') {
                         const p = msg.data || {};
                         const percent = parseFloat(p.percent || 0);
@@ -4779,7 +5409,6 @@
                     }
                     break;
                 case 'nsb_scan_result':
-                    if (isStoppingTask) break;
                     if (nsbBatchSpeedRunning) {
                         updateNSBDisplayedResult(msg.data || {});
                     } else {
@@ -4787,7 +5416,6 @@
                     }
                     break;
                 case 'nsb_scan_sorted':
-                    if (isStoppingTask) break;
                     nsbLiveRows = [];
                     nsbLiveIndex = {};
                     nsbLiveRowElements = {};
@@ -4809,6 +5437,17 @@
                     updateProgress(msg.data?.qualified || 0, msg.data?.limit || 1, '测速完成');
                     autoUploadNSBResults();
                     break;
+
+                case 'nsb_csv_ready':
+                    finishRunningTask('✨ 开始扫描与测试');
+                    nsbStopHandledByComplete = true;
+                    progressBar.style.background = 'var(--warning-color)';
+                    progressBar.style.width = '100%';
+                    progressBar.style.animation = 'none';
+                    progressBar.textContent = '任务已停止，结果已整理，正在回传表格';
+                    log(`任务已停止: ${msg.data?.message || '已整理当前可用结果'}${msg.data?.file ? '，结果文件: ' + msg.data.file : ''}`);
+                    break;
+
                 case 'nsb_csv_complete':
                     const wasStoppingNSB = isStoppingTask;
                     finishRunningTask('✨ 开始扫描与测试');
@@ -4838,6 +5477,27 @@
                         log(`非标优选完成，已生成: ${msg.data.file}`);
                     }
                     autoUploadNSBResults();
+                    break;
+
+                case 'background_task_enabled':
+                case 'background_task_found':
+                case 'background_task_update':
+                    applyBackgroundSnapshot(msg.data || {});
+                    if (msg.type === 'background_task_found') log('检测到后台任务，已显示状态卡片');
+                    break;
+
+                case 'background_task_following':
+                    backgroundTaskFollowing = true;
+                    stopBackgroundStatusPolling();
+                    applyBackgroundSnapshot(msg.data || {});
+                    log('已开始跟随后台任务实时数据');
+                    break;
+
+                case 'background_task_missing':
+                    backgroundTaskActive = false;
+                    backgroundTaskFollowing = false;
+                    stopBackgroundStatusPolling();
+                    finishRunningTask('✨ 开始扫描与测试');
                     break;
 
                 case 'task_stopped':
@@ -5000,10 +5660,10 @@
             const reminder = data.reminder || '删掉之后，下次重新运行程序时会自动重新下载。';
 
             if (data.success) {
-                alert(`本地缓存已清理\n\n已删除: ${deleted}\n不存在: ${missing}\n\n提示: ${reminder}`);
+                showNoticeCard(`本地缓存已清理\n\n已删除: ${deleted}\n不存在: ${missing}\n\n提示: ${reminder}`);
                 log(`本地缓存已清理，已删除: ${deleted}；不存在: ${missing}`);
             } else {
-                alert(`本地缓存清理失败\n\n已删除: ${deleted}\n不存在: ${missing}\n删除失败: ${failed}\n\n提示: ${reminder}`);
+                showNoticeCard(`本地缓存清理失败\n\n已删除: ${deleted}\n不存在: ${missing}\n删除失败: ${failed}\n\n提示: ${reminder}`);
                 log(`清理本地缓存时有文件没删掉: ${failed}`);
             }
         }

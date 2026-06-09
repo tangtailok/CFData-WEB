@@ -7,10 +7,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 var globalRunningTasks int32
 var globalTaskMutex sync.Mutex
+var backgroundTaskMutex sync.Mutex
+var backgroundTaskSession *appSession
 
 func anyTaskRunning() bool {
 	return atomic.LoadInt32(&globalRunningTasks) > 0
@@ -33,6 +37,18 @@ func safeGo(label string, session *appSession, fn func()) {
 }
 
 func (s *appSession) sendWSMessage(msgType string, data interface{}) {
+	updatedBackground := false
+	if s.emit == nil {
+		s.updateBackgroundSnapshotFromMessage(msgType, data)
+		updatedBackground = s.isBackgroundTask()
+	}
+	if updatedBackground && msgType != "background_task_update" && msgType != "background_task_found" && msgType != "background_task_enabled" {
+		s.sendWSMessageDirect("background_task_update", s.backgroundSummary())
+	}
+	s.sendWSMessageDirect(msgType, data)
+}
+
+func (s *appSession) sendWSMessageDirect(msgType string, data interface{}) {
 	if s.emit != nil {
 		if msgType == "error" || msgType == "github_upload_error" {
 			recordProgramDebugError(msgType, data)
@@ -67,9 +83,19 @@ func (s *appSession) sendWSMessage(msgType string, data interface{}) {
 	}
 }
 
+func (s *appSession) isBackgroundTask() bool {
+	s.taskMutex.Lock()
+	defer s.taskMutex.Unlock()
+	return s.backgroundTask
+}
+
 func (s *appSession) startTask(run taskStarter) {
+	s.startTaskNamed("任务", "", nil, run)
+}
+
+func (s *appSession) startTaskNamed(label string, mode string, params map[string]interface{}, run taskStarter) {
 	ctx, cancel := context.WithCancel(context.Background())
-	started := s.beginTask(cancel)
+	started := s.beginTask(cancel, label, mode, params)
 	if !started {
 		cancel()
 		s.sendWSMessage("error", "已有任务正在运行，请等待完成后再试")
@@ -91,7 +117,7 @@ func (s *appSession) startTask(run taskStarter) {
 
 func (s *appSession) runTaskSync(run taskStarter) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	started := s.beginTask(cancel)
+	started := s.beginTask(cancel, "", "", nil)
 	if !started {
 		cancel()
 		return context.Canceled
@@ -110,6 +136,26 @@ func (s *appSession) cancelTaskSilently() {
 	s.cancelTask(false)
 }
 
+func (s *appSession) enableBackgroundTask() bool {
+	s.taskMutex.Lock()
+	if !s.isTaskRunning {
+		s.taskMutex.Unlock()
+		return false
+	}
+	s.backgroundTask = true
+	s.backgroundSnapshot.Running = true
+	s.backgroundSnapshot.UpdatedAt = time.Now()
+	s.taskMutex.Unlock()
+	registerBackgroundTaskSession(s)
+	return true
+}
+
+func (s *appSession) shouldCancelOnDisconnect() bool {
+	s.taskMutex.Lock()
+	defer s.taskMutex.Unlock()
+	return s.isTaskRunning && !s.backgroundTask
+}
+
 func (s *appSession) cancelTask(withLog bool) {
 	s.taskMutex.Lock()
 	cancel := s.taskCancel
@@ -117,14 +163,27 @@ func (s *appSession) cancelTask(withLog bool) {
 	if cancel != nil {
 		cancel()
 		if withLog {
+			s.markBackgroundStopping()
 			s.sendWSMessage("log", "已发送强制终止信号，正在清理当前任务...")
 		}
 	}
 }
 
-func (s *appSession) beginTask(cancel context.CancelFunc) bool {
+func (s *appSession) markBackgroundStopping() {
+	s.taskMutex.Lock()
+	defer s.taskMutex.Unlock()
+	if !s.backgroundTask {
+		return
+	}
+	s.backgroundSnapshot.Phase = "正在停止"
+	s.backgroundSnapshot.Message = "已发送停止信号，正在整理当前可用结果"
+	s.backgroundSnapshot.UpdatedAt = time.Now()
+}
+
+func (s *appSession) beginTask(cancel context.CancelFunc, label string, mode string, params map[string]interface{}) bool {
 	globalTaskMutex.Lock()
 	defer globalTaskMutex.Unlock()
+	clearCompletedBackgroundTaskSession()
 	s.taskMutex.Lock()
 	defer s.taskMutex.Unlock()
 	if anyTaskRunning() {
@@ -135,6 +194,9 @@ func (s *appSession) beginTask(cancel context.CancelFunc) bool {
 	}
 	s.isTaskRunning = true
 	s.taskCancel = cancel
+	s.backgroundTask = false
+	now := time.Now()
+	s.backgroundSnapshot = backgroundTaskSnapshot{Label: label, Mode: mode, Phase: "准备中", Message: "任务准备中", Running: true, StartedAt: now, UpdatedAt: now, Params: params}
 	atomic.AddInt32(&globalRunningTasks, 1)
 	return true
 }
@@ -149,4 +211,145 @@ func (s *appSession) endTask() {
 	}
 	s.isTaskRunning = false
 	s.taskCancel = nil
+	s.backgroundSnapshot.Running = false
+	s.backgroundSnapshot.UpdatedAt = time.Now()
+}
+
+func registerBackgroundTaskSession(session *appSession) {
+	backgroundTaskMutex.Lock()
+	defer backgroundTaskMutex.Unlock()
+	backgroundTaskSession = session
+}
+
+func clearCompletedBackgroundTaskSession() {
+	backgroundTaskMutex.Lock()
+	defer backgroundTaskMutex.Unlock()
+	if backgroundTaskSession == nil {
+		return
+	}
+	backgroundTaskSession.taskMutex.Lock()
+	defer backgroundTaskSession.taskMutex.Unlock()
+	if backgroundTaskSession.isTaskRunning {
+		return
+	}
+	backgroundTaskSession.backgroundTask = false
+	backgroundTaskSession = nil
+}
+
+func currentBackgroundTaskSession() *appSession {
+	backgroundTaskMutex.Lock()
+	defer backgroundTaskMutex.Unlock()
+	if backgroundTaskSession == nil {
+		return nil
+	}
+	backgroundTaskSession.taskMutex.Lock()
+	defer backgroundTaskSession.taskMutex.Unlock()
+	if !backgroundTaskSession.backgroundTask || !backgroundTaskSession.isTaskRunning {
+		return nil
+	}
+	return backgroundTaskSession
+}
+
+func (s *appSession) backgroundSummary() backgroundTaskSnapshot {
+	s.taskMutex.Lock()
+	defer s.taskMutex.Unlock()
+	s.backgroundSnapshot.Running = s.isTaskRunning
+	return s.backgroundSnapshot
+}
+
+func (s *appSession) attachWebSocket(conn *websocket.Conn) {
+	s.wsMutex.Lock()
+	defer s.wsMutex.Unlock()
+	s.ws = conn
+	s.wsClosed = false
+}
+
+func (s *appSession) updateBackgroundSnapshotFromMessage(msgType string, data interface{}) {
+	s.taskMutex.Lock()
+	defer s.taskMutex.Unlock()
+	if !s.isTaskRunning && !s.backgroundTask {
+		return
+	}
+	now := time.Now()
+	s.backgroundSnapshot.UpdatedAt = now
+	s.backgroundSnapshot.Running = s.isTaskRunning
+	s.applyBackgroundMessageLocked(msgType, data)
+}
+
+func (s *appSession) applyBackgroundMessageLocked(msgType string, data interface{}) {
+	switch msgType {
+	case "log":
+		s.backgroundSnapshot.Message = fmt.Sprint(data)
+	case "scan_progress", "test_progress":
+		m, ok := data.(map[string]interface{})
+		if !ok {
+			return
+		}
+		phase := "扫描中"
+		if msgType == "test_progress" {
+			phase = "详细测试中"
+		}
+		s.updateProgressSnapshotLocked(phase, asInt(m["current"]), asInt(m["total"]), phase)
+	case "official_speed_progress":
+		m, ok := data.(map[string]interface{})
+		if !ok {
+			return
+		}
+		s.updateProgressSnapshotLocked("测速中", asInt(m["qualified"]), asInt(m["limit"]), "测速中")
+	case "nsb_progress":
+		m, ok := data.(map[string]interface{})
+		if !ok {
+			return
+		}
+		text := fmt.Sprint(m["text"])
+		if text == "" || text == "<nil>" {
+			text = "处理中"
+		}
+		s.updateProgressSnapshotLocked(text, asInt(m["current"]), asInt(m["total"]), text)
+	case "scan_result":
+		s.backgroundSnapshot.ResultCount++
+	case "nsb_scan_result":
+		if s.backgroundSnapshot.Phase == "测速中" {
+			s.backgroundSnapshot.SpeedCount++
+		} else {
+			s.backgroundSnapshot.ResultCount++
+		}
+	case "speed_test_result":
+		s.backgroundSnapshot.SpeedCount++
+	case "test_result":
+		s.backgroundSnapshot.TestCount++
+	case "scan_complete_wait_dc":
+		if list, ok := data.([]DataCenterInfo); ok {
+			s.backgroundSnapshot.DCCount = len(list)
+		}
+		s.backgroundSnapshot.Phase = "扫描完成"
+		s.backgroundSnapshot.Message = "扫描完成，等待详细测试或后续阶段"
+	case "test_complete":
+		s.backgroundSnapshot.Phase = "详细测试完成"
+		s.backgroundSnapshot.Message = "详细测试完成"
+	case "official_speed_complete", "nsb_speed_complete":
+		s.backgroundSnapshot.Phase = "测速完成"
+		s.backgroundSnapshot.Message = "测速完成"
+	case "nsb_csv_complete":
+		s.backgroundSnapshot.Phase = "完成"
+		s.backgroundSnapshot.Message = "结果文件已生成"
+	case "task_stopped":
+		s.backgroundSnapshot.Phase = "已停止"
+		s.backgroundSnapshot.Message = "任务已停止"
+		s.backgroundSnapshot.Running = false
+	case "task_complete":
+		s.backgroundSnapshot.Phase = "完成"
+		s.backgroundSnapshot.Message = "任务完成"
+		s.backgroundSnapshot.Running = false
+	}
+}
+
+func (s *appSession) updateProgressSnapshotLocked(phase string, current int, total int, message string) {
+	s.backgroundSnapshot.Phase = phase
+	s.backgroundSnapshot.Message = message
+	s.backgroundSnapshot.Current = current
+	s.backgroundSnapshot.Total = total
+	if total > 0 {
+		s.backgroundSnapshot.Percent = float64(current) / float64(total) * 100
+	}
 }

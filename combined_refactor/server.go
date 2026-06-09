@@ -31,7 +31,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	session := &appSession{ws: ws}
 	defer func() {
-		session.cancelTaskSilently()
+		if session.shouldCancelOnDisconnect() {
+			session.cancelTaskSilently()
+		}
 		ws.Close()
 	}()
 
@@ -91,6 +93,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		"geoCheckOK":       cfCountryOK,
 		"skipGeoCheck":     skipGeoCheck,
 	})
+	if backgroundSession := currentBackgroundTaskSession(); backgroundSession != nil {
+		session.sendWSMessage("background_task_found", backgroundSession.backgroundSummary())
+	}
 	safeGo("version-check", session, func() {
 		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 		defer cancel()
@@ -131,7 +136,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if params.Delay < 0 {
 				params.Delay = 0
 			}
-			session.startTask(func(ctx context.Context, session *appSession) {
+			session.startTaskNamed("官方优选扫描", "official", map[string]interface{}{"ipType": params.IPType, "threads": params.Threads, "port": params.Port, "delay": params.Delay}, func(ctx context.Context, session *appSession) {
 				runOfficialTask(ctx, session, params.IPType, params.Threads, params.Port)
 			})
 		},
@@ -147,7 +152,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if params.Delay < 0 {
 				params.Delay = 0
 			}
-			session.startTask(func(ctx context.Context, session *appSession) {
+			session.startTaskNamed("官方详细测试", "official", map[string]interface{}{"dc": params.DC, "port": params.Port, "delay": params.Delay}, func(ctx context.Context, session *appSession) {
 				runDetailedTest(ctx, session, params.DC, params.Port, params.Delay)
 			})
 		},
@@ -160,7 +165,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if params.Port <= 0 {
 				params.Port = 443
 			}
-			session.startTask(func(ctx context.Context, session *appSession) {
+			session.startTaskNamed("单 IP 测速", "official", map[string]interface{}{"ip": params.IP, "port": params.Port, "url": params.URL}, func(ctx context.Context, session *appSession) {
 				runSpeedTest(ctx, session, params.IP, params.Port, params.URL)
 			})
 		},
@@ -182,7 +187,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if strings.TrimSpace(params.URL) == "" {
 				params.URL = speedTestURL
 			}
-			session.startTask(func(ctx context.Context, session *appSession) {
+			session.startTaskNamed("官方批量测速", "official", map[string]interface{}{"port": params.Port, "url": params.URL, "speedLimit": params.SpeedLimit, "speedMin": params.SpeedMin, "skipTested": params.SkipTested}, func(ctx context.Context, session *appSession) {
 				runOfficialSpeedBatch(ctx, session, params.Port, params.URL, params.SpeedLimit, params.SpeedMin, params.Results, params.SkipTested)
 			})
 		},
@@ -229,7 +234,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			session.startTask(func(ctx context.Context, session *appSession) {
+			session.startTaskNamed("非标优选", "nsb", map[string]interface{}{"fileName": params.FileName, "sourceURL": params.SourceURL, "outFile": params.OutFile, "maxThreads": params.MaxThreads, "fallbackPort": params.FallbackPort, "speedTest": params.SpeedTest, "speedURL": params.SpeedURL, "enableTLS": params.EnableTLS, "delay": params.Delay, "resultLimit": params.ResultLimit, "dc": params.DC, "speedMin": params.SpeedMin, "speedLimit": params.SpeedLimit, "compact": params.Compact}, func(ctx context.Context, session *appSession) {
 				fileName := params.FileName
 				fileContent := params.FileContent
 				if hasSourceURL {
@@ -270,15 +275,47 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				session.sendWSMessage("error", "没有可测速的非标结果")
 				return
 			}
-			session.startTask(func(ctx context.Context, session *appSession) {
+			session.startTaskNamed("非标批量测速", "nsb", map[string]interface{}{"speedTest": params.SpeedTest, "speedURL": params.SpeedURL, "enableTLS": params.EnableTLS, "speedMin": params.SpeedMin, "speedLimit": params.SpeedLimit, "skipTested": params.SkipTested, "compact": params.Compact}, func(ctx context.Context, session *appSession) {
 				runNSBSpeedBatch(ctx, session, params.Results, params.SpeedTest, params.SpeedURL, params.EnableTLS, params.SpeedMin, params.SpeedLimit, params.SkipTested, params.Compact)
 			})
 		},
 		"stop_task": func(data json.RawMessage) {
+			if backgroundSession := currentBackgroundTaskSession(); backgroundSession != nil {
+				if session != backgroundSession {
+					backgroundSession.attachWebSocket(ws)
+				}
+				backgroundSession.stopTask()
+				return
+			}
 			session.stopTask()
 		},
+		"run_in_background": func(data json.RawMessage) {
+			if !session.enableBackgroundTask() {
+				session.sendWSMessage("error", "当前没有可转入后台的运行任务")
+				return
+			}
+			session.sendWSMessage("background_task_enabled", session.backgroundSummary())
+			session.sendWSMessage("log", "当前任务已转入后台运行")
+		},
+		"follow_background_task": func(data json.RawMessage) {
+			backgroundSession := currentBackgroundTaskSession()
+			if backgroundSession == nil {
+				session.sendWSMessage("error", "当前没有可跟随的后台任务")
+				return
+			}
+			backgroundSession.attachWebSocket(ws)
+			backgroundSession.sendWSMessage("background_task_following", backgroundSession.backgroundSummary())
+		},
+		"get_background_task_status": func(data json.RawMessage) {
+			backgroundSession := currentBackgroundTaskSession()
+			if backgroundSession == nil {
+				session.sendWSMessage("background_task_missing", nil)
+				return
+			}
+			session.sendWSMessage("background_task_update", backgroundSession.backgroundSummary())
+		},
 		"compact_ipv4": func(data json.RawMessage) {
-			session.startTask(func(ctx context.Context, session *appSession) {
+			session.startTaskNamed("IPv4 地址库精简", "official", nil, func(ctx context.Context, session *appSession) {
 				runCompactIPv4Task(ctx, session)
 			})
 		},
