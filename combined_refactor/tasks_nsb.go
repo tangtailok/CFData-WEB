@@ -611,12 +611,12 @@ func runNSBTask(ctx context.Context, session *appSession, fileName, fileContent,
 		session.sendWSMessage("error", "导出 CSV 失败: "+err.Error())
 		return
 	}
-
-	headers, rows, err := parseCSVFile(outFile)
-	if err != nil {
-		session.sendWSMessage("error", "读取导出 CSV 失败: "+err.Error())
-		return
+	if wasCanceled || ctx.Err() != nil {
+		session.sendWSMessage("nsb_csv_ready", map[string]interface{}{"file": outFile, "status": completionStatus, "message": completionMessage, "rows": len(nsbResults), "qualifiedCount": qualifiedCount})
 	}
+
+	headers := nsbCSVHeaders(compact)
+	rows := nsbCSVRows(nsbResults, speedTest > 0, compact)
 
 	session.sendWSMessage("nsb_csv_complete", nsbCSVCompletePayload{Headers: headers, Rows: rows, File: outFile, Status: completionStatus, Message: completionMessage, QualifiedCount: qualifiedCount})
 	session.sendWSMessage("log", fmt.Sprintf("非标优选完成，结果文件: %s", outFile))
@@ -890,6 +890,14 @@ func writeNSBCSV(outFile string, results []iptestResult, speedTest int, compact 
 	}
 
 	return nil
+}
+
+func nsbCSVRows(results []iptestResult, includeSpeed bool, compact bool) [][]string {
+	rows := make([][]string, 0, len(results))
+	for _, res := range results {
+		rows = append(rows, nsbCSVRow(res, includeSpeed, compact))
+	}
+	return rows
 }
 
 func nsbCSVHeaders(compact bool) []string {

@@ -220,6 +220,8 @@ type appSession struct {
 	taskMutex            sync.Mutex
 	isTaskRunning        bool
 	taskCancel           context.CancelFunc
+	backgroundTask       bool
+	backgroundSnapshot   backgroundTaskSnapshot
 	wsClosed             bool
 	scanMutex            sync.Mutex
 	scanResults          []ScanResult
@@ -232,6 +234,24 @@ type appSession struct {
 	progressState        map[string][2]int
 	progressPrintTime    map[string]time.Time
 	progressPrintPercent map[string]float64
+}
+
+type backgroundTaskSnapshot struct {
+	Label       string                 `json:"label"`
+	Mode        string                 `json:"mode"`
+	Phase       string                 `json:"phase"`
+	Message     string                 `json:"message"`
+	Current     int                    `json:"current"`
+	Total       int                    `json:"total"`
+	Percent     float64                `json:"percent"`
+	ResultCount int                    `json:"resultCount"`
+	SpeedCount  int                    `json:"speedCount"`
+	TestCount   int                    `json:"testCount"`
+	DCCount     int                    `json:"dcCount"`
+	Running     bool                   `json:"running"`
+	StartedAt   time.Time              `json:"startedAt"`
+	UpdatedAt   time.Time              `json:"updatedAt"`
+	Params      map[string]interface{} `json:"params,omitempty"`
 }
 
 type taskStarter func(ctx context.Context, session *appSession)
