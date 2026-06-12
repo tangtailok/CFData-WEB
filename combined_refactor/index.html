@@ -665,6 +665,47 @@
             white-space: nowrap;
         }
 
+        .background-status-wide {
+            grid-column: span 2;
+        }
+
+        .background-status-wide .background-status-value {
+            white-space: normal;
+            line-height: 1.55;
+        }
+
+        .background-stat-line {
+            font-size: 13px;
+            word-break: keep-all;
+        }
+
+        .background-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .background-stat-cell {
+            display: grid;
+            grid-template-columns: 54px minmax(54px, 1fr);
+            align-items: baseline;
+            column-gap: 6px;
+            min-width: 0;
+            font-size: 13px;
+        }
+
+        .background-stat-name {
+            color: var(--text-secondary);
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .background-stat-number {
+            font-variant-numeric: tabular-nums;
+            text-align: left;
+            white-space: nowrap;
+        }
+
         @keyframes stripe {
             from {
                 background-position: 0 0, 0 0;
@@ -1483,6 +1524,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .background-stat-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
             .option-item {
                 flex-direction: column;
                 align-items: flex-start;
@@ -1771,11 +1816,10 @@
             <div class="background-status-card background-confirm-card" id="backgroundConfirmCard">
                 <div class="background-status-title">确认转入后台运行？</div>
                 <div class="background-confirm-text">
-                    <div>关闭或刷新页面不会中断任务。</div>
-                    <div>不会恢复断开期间的表格历史结果。</div>
-                    <div>后台任务只保留轻量状态，不做后台恢复同步全部数据。</div>
-                    <div>经过测试，数据量过大时同步全部数据可能导致浏览器崩溃。</div>
-                    <div>大任务建议使用 CLI 查看最终结果文件。</div>
+                    <div>转入后台后，任务会继续运行，关闭或刷新页面不会中断，任务完成后会渲染最终结果。</div>
+                    <div>重新打开页面时，只会显示任务状态和当前进度，不会回放断开期间的表格数据。</div>
+                    <div>这里不会做“后台恢复后同步全部历史数据”，因为大量结果一次性回传可能导致浏览器卡死或崩溃。</div>
+                    <div>如果测试数据量很大，建议使用 CLI 模式。</div>
                 </div>
                 <div class="background-confirm-actions">
                     <button class="action-btn export-btn" onclick="confirmRunTaskInBackground()">确认转入后台</button>
@@ -1794,12 +1838,12 @@
                 <button class="action-btn export-btn" id="btnFollowBackground" onclick="followBackgroundTask()">📡 跟随实时数据</button>
             </div>
             <div class="background-status-grid">
-                <div class="background-status-item"><span class="background-status-label">数据来源</span><div class="background-status-value" id="backgroundSource">-</div></div>
+                <div class="background-status-item" style="grid-column:1/-1;"><span class="background-status-label">数据来源</span><div class="background-status-value" id="backgroundSource">-</div></div>
                 <div class="background-status-item"><span class="background-status-label">阶段</span><div class="background-status-value" id="backgroundPhase">-</div></div>
                 <div class="background-status-item"><span class="background-status-label">进度</span><div class="background-status-value" id="backgroundProgressText">-</div></div>
-                <div class="background-status-item"><span class="background-status-label">扫描结果</span><div class="background-status-value" id="backgroundResultCount">0</div></div>
-                <div class="background-status-item"><span class="background-status-label">测速结果</span><div class="background-status-value" id="backgroundSpeedCount">0</div></div>
                 <div class="background-status-item" id="backgroundExtraItem"><span class="background-status-label">详细/数据中心</span><div class="background-status-value" id="backgroundExtraCount">0 / 0</div></div>
+                <div class="background-status-item background-status-wide"><span class="background-status-label">扫描结果</span><div class="background-status-value" id="backgroundResultCount">0</div></div>
+                <div class="background-status-item background-status-wide"><span class="background-status-label">测速结果</span><div class="background-status-value" id="backgroundSpeedCount">0</div></div>
                 <div class="background-status-item" style="grid-column:1/-1;"><span class="background-status-label">状态</span><div class="background-status-value" id="backgroundMessage">-</div></div>
             </div>
         </div>
@@ -1960,8 +2004,8 @@
                     <div class="modal-field" id="resultQualifiedFilterField">
                         <label>导出合格结果</label>
                         <select id="resultQualifiedFilter" onchange="updateResultPreview()">
-                            <option value="all" selected>导出全部结果</option>
-                            <option value="qualified">仅导出合格</option>
+                            <option value="all">导出全部结果</option>
+                            <option value="qualified" selected>仅导出合格</option>
                             <option value="unqualified">仅导出不合格</option>
                         </select>
                     </div>
@@ -2085,8 +2129,8 @@
                     <div class="modal-field" id="copyQualifiedFilterField">
                         <label>复制合格结果</label>
                         <select id="copyQualifiedFilter" onchange="updateCopyPreview()">
-                            <option value="all" selected>复制全部结果</option>
-                            <option value="qualified">仅复制合格</option>
+                            <option value="all">复制全部结果</option>
+                            <option value="qualified" selected>仅复制合格</option>
                             <option value="unqualified">仅复制不合格</option>
                         </select>
                     </div>
@@ -3072,8 +3116,27 @@
             const total = snapshot.total || 0;
             const percent = Number.isFinite(snapshot.percent) ? snapshot.percent : (total > 0 ? current / total * 100 : 0);
             document.getElementById('backgroundProgressText').textContent = total > 0 ? `${current}/${total} (${Math.round(percent)}%)` : '-';
-            document.getElementById('backgroundResultCount').textContent = snapshot.resultCount || 0;
-            document.getElementById('backgroundSpeedCount').textContent = snapshot.speedCount || 0;
+            const formatStats = (total, success, failed, qualified) => {
+                const safeTotal = Math.max(total || 0, success || 0, failed || 0, qualified || 0);
+                const safeSuccess = success || 0;
+                const safeFailed = failed || 0;
+                const safeQualified = qualified ?? safeSuccess;
+                const qualifiedRate = safeTotal > 0 ? `${Math.round(safeQualified / safeTotal * 100)}%` : '-';
+                return [
+                    ['总数', safeTotal],
+                    ['合格率', qualifiedRate],
+                    ['成功数', safeSuccess],
+                    ['失败数', safeFailed],
+                ].map(([label, value]) => `<span class="background-stat-cell"><span class="background-stat-name">${label}</span><span class="background-stat-number">${value}</span></span>`).join('');
+            };
+            const scanTotal = snapshot.scanTotal || snapshot.resultCount || snapshot.testCount || 0;
+            const scanSuccess = snapshot.scanSuccess || snapshot.resultCount || snapshot.testCount || 0;
+            const scanFailed = snapshot.scanFailed || Math.max(scanTotal - scanSuccess, 0);
+            const speedTotal = snapshot.speedTotal || snapshot.speedCount || 0;
+            const speedSuccess = snapshot.speedSuccess || snapshot.speedCount || 0;
+            const speedFailed = snapshot.speedFailed || Math.max(speedTotal - speedSuccess, 0);
+            document.getElementById('backgroundResultCount').innerHTML = `<div class="background-stat-grid">${formatStats(scanTotal, scanSuccess, scanFailed, scanSuccess)}</div>`;
+            document.getElementById('backgroundSpeedCount').innerHTML = `<div class="background-stat-grid">${formatStats(speedTotal, speedSuccess, speedFailed, snapshot.speedQualified || 0)}</div>`;
             const extra = document.getElementById('backgroundExtraItem');
             const showExtra = (snapshot.testCount || 0) > 0 || (snapshot.dcCount || 0) > 0;
             if (extra) extra.style.display = showExtra ? 'block' : 'none';
@@ -4344,6 +4407,8 @@
             if (filterSelect && resultModalMode !== 'nsb') filterSelect.value = 'all';
             const qualifiedField = document.getElementById('resultQualifiedFilterField');
             if (qualifiedField) qualifiedField.style.display = '';
+            const qualifiedSelect = document.getElementById('resultQualifiedFilter');
+            if (qualifiedSelect) qualifiedSelect.value = 'qualified';
             if (!resultFieldOrder.length) resultFieldOrder = getDefaultResultFieldOrder(document.getElementById('resultFormat').value);
             renderGitHubAccounts();
             renderResultFieldOptions();
@@ -4820,6 +4885,8 @@
             if (filterSelect && copyModalMode !== 'nsb') filterSelect.value = 'all';
             const qualifiedField = document.getElementById('copyQualifiedFilterField');
             if (qualifiedField) qualifiedField.style.display = '';
+            const qualifiedSelect = document.getElementById('copyQualifiedFilter');
+            if (qualifiedSelect) qualifiedSelect.value = 'qualified';
             const rows = getCopyRowsBeforeRange();
             if (!rows.length) return showNoticeCard('暂无可复制结果');
             if (!copyFieldOrder.length) copyFieldOrder = getDefaultResultFieldOrderFor(copyModalMode, 'txt');

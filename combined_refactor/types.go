@@ -237,21 +237,28 @@ type appSession struct {
 }
 
 type backgroundTaskSnapshot struct {
-	Label       string                 `json:"label"`
-	Mode        string                 `json:"mode"`
-	Phase       string                 `json:"phase"`
-	Message     string                 `json:"message"`
-	Current     int                    `json:"current"`
-	Total       int                    `json:"total"`
-	Percent     float64                `json:"percent"`
-	ResultCount int                    `json:"resultCount"`
-	SpeedCount  int                    `json:"speedCount"`
-	TestCount   int                    `json:"testCount"`
-	DCCount     int                    `json:"dcCount"`
-	Running     bool                   `json:"running"`
-	StartedAt   time.Time              `json:"startedAt"`
-	UpdatedAt   time.Time              `json:"updatedAt"`
-	Params      map[string]interface{} `json:"params,omitempty"`
+	Label          string                 `json:"label"`
+	Mode           string                 `json:"mode"`
+	Phase          string                 `json:"phase"`
+	Message        string                 `json:"message"`
+	Current        int                    `json:"current"`
+	Total          int                    `json:"total"`
+	Percent        float64                `json:"percent"`
+	ResultCount    int                    `json:"resultCount"`
+	SpeedCount     int                    `json:"speedCount"`
+	ScanTotal      int                    `json:"scanTotal"`
+	ScanSuccess    int                    `json:"scanSuccess"`
+	ScanFailed     int                    `json:"scanFailed"`
+	SpeedTotal     int                    `json:"speedTotal"`
+	SpeedSuccess   int                    `json:"speedSuccess"`
+	SpeedFailed    int                    `json:"speedFailed"`
+	SpeedQualified int                    `json:"speedQualified"`
+	TestCount      int                    `json:"testCount"`
+	DCCount        int                    `json:"dcCount"`
+	Running        bool                   `json:"running"`
+	StartedAt      time.Time              `json:"startedAt"`
+	UpdatedAt      time.Time              `json:"updatedAt"`
+	Params         map[string]interface{} `json:"params,omitempty"`
 }
 
 type taskStarter func(ctx context.Context, session *appSession)
