@@ -521,12 +521,17 @@ func runNSBTask(ctx context.Context, session *appSession, fileName, fileContent,
 			}
 			continue
 		}
+		isDomain := len(resolvedIPs) > 1 || (len(resolvedIPs) == 1 && resolvedIPs[0] != host)
 		for _, ip := range resolvedIPs {
+			originalInput := ""
+			if isDomain {
+				originalInput = host
+			}
 			expandedEntries = append(expandedEntries, struct {
 				ip            string
 				port          int
 				originalInput string
-			}{ip, port, host})
+			}{ip, port, originalInput})
 		}
 	}
 
