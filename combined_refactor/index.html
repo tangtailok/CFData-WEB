@@ -3489,16 +3489,15 @@
                 const isDomain = /[a-zA-Z]/.test(originalInput);
                 if (isDomain) {
                     const safeSource = escapeHTML(originalInput);
-                    domainIcon = `<span class="ip-detail-link" title="来源域名: ${safeSource}" onclick="event.stopPropagation()" style="cursor:default;">🌐</span>`;
+                    domainIcon = `<span class="ip-detail-link" title="来源域名: ${safeSource}" onclick="event.stopPropagation()" style="cursor:default;">ⓗ</span>`;
                 }
             }
             return `<span class="ip-cell"><span class="copy-ip" onclick="copyToClipboard('${jsIP}', event)">${safeIP}</span>${domainIcon}<a class="ip-detail-link" href="https://ippure.com/?ip=${hrefIP}" target="_blank" rel="noopener noreferrer" title="前往 ippure.com 查看 IP 详情" onclick="event.stopPropagation()">ⓘ</a></span>`;
         }
 
-        function renderNSBRowFromCSV(headers, r) {
+        function renderNSBRowFromCSV(headers, r, originalInput) {
             let ipIndex = headers.indexOf('IP地址');
             let portIndex = headers.indexOf('端口号');
-            let originalInputIndex = headers.indexOf('OriginalInput');
             let latencyIndex = headers.indexOf('网络延迟');
             let lossIndex = headers.indexOf('丢包率');
             let speedIndex = headers.indexOf('下载速度');
@@ -3508,7 +3507,6 @@
                 const val = escapeHTML(r[idx] ?? '');
                 const rawVal = String(r[idx] ?? '');
                 if (idx === ipIndex && ipIndex !== -1) {
-                    const originalInput = originalInputIndex !== -1 ? r[originalInputIndex] : rawVal;
                     return `<td>${renderIPCell(rawVal, originalInput)}</td>`;
                 } else if (idx === portIndex && portIndex !== -1) {
                     return `<td><span class="copy-ip" onclick="copyToClipboard('${escapeJSString(rawVal)}', event)">${val}</span></td>`;
@@ -3542,11 +3540,13 @@
             tbody.innerHTML = '';
             renderScanHeaders('nsb');
             const visibleHeaders = filterNSBHeaders(headers);
+            const originalInputIndex = headers.map(normalizeNSBHeader).indexOf('OriginalInput');
 
             const filteredRows = filterNSBRowsByQualified(filterNSBRowsByIPType(headers, rows, nsbTableIPTypeFilter), headers, nsbTableQualifiedFilter);
             filteredRows.forEach((r) => {
                 const visibleRow = filterNSBRow(headers, r);
-                const tds = renderNSBRowFromCSV(visibleHeaders, visibleRow);
+                const originalInput = originalInputIndex !== -1 ? r[originalInputIndex] : undefined;
+                const tds = renderNSBRowFromCSV(visibleHeaders, visibleRow, originalInput);
                 const rowStatus = nsbRowStatusFromCSV(headers, r);
                 tbody.insertAdjacentHTML('beforeend', `<tr class="${rowStatus === 'qualified' ? 'row-qualified' : (rowStatus === 'unqualified' ? 'row-unqualified' : '')}">${tds}</tr>`);
             });
@@ -3555,8 +3555,8 @@
             updateNSBSpeedButtons();
         }
 
-        const NSB_LIVE_HEADERS = ['IP地址', '端口号', 'TLS', '丢包率', '网络延迟', '下载速度', '出站IP', 'IP类型', '数据中心', '源IP位置', '地区', '城市', 'ASN号码', 'ASN组织', '访问协议', 'TLS版本', 'SNI', 'HTTP版本', 'WARP', 'Gateway', 'RBI', '密钥交换', '时间戳'];
-        const NSB_COMPACT_HEADERS = ['IP地址', '端口号', 'TLS', '丢包率', '网络延迟', '下载速度', '出站IP', 'IP类型', '数据中心', '源IP位置', '地区', '城市', 'ASN号码', 'ASN组织'];
+        const NSB_LIVE_HEADERS = ['IP地址', 'OriginalInput', '端口号', 'TLS', '丢包率', '网络延迟', '下载速度', '出站IP', 'IP类型', '数据中心', '源IP位置', '地区', '城市', 'ASN号码', 'ASN组织', '访问协议', 'TLS版本', 'SNI', 'HTTP版本', 'WARP', 'Gateway', 'RBI', '密钥交换', '时间戳'];
+        const NSB_COMPACT_HEADERS = ['IP地址', 'OriginalInput', '端口号', 'TLS', '丢包率', '网络延迟', '下载速度', '出站IP', 'IP类型', '数据中心', '源IP位置', '地区', '城市', 'ASN号码', 'ASN组织'];
 
         function normalizeNSBHeader(header) {
             if (header === 'IP') return 'IP地址';
@@ -3565,25 +3565,38 @@
         }
 
         function filterNSBHeaders(headers) {
-            const normalized = (headers || []).map(normalizeNSBHeader);
+            const normalized = (headers || []).map(normalizeNSBHeader).filter(h => h !== 'OriginalInput');
             if (!nsbCompactView) return normalized;
-            return NSB_COMPACT_HEADERS.filter((h) => normalized.includes(h));
+            return NSB_COMPACT_HEADERS.filter((h) => normalized.includes(h) && h !== 'OriginalInput');
         }
 
         function filterNSBRow(headers, row) {
             const normalized = (headers || []).map(normalizeNSBHeader);
-            if (!nsbCompactView) return row;
-            return NSB_COMPACT_HEADERS.filter((h) => normalized.includes(h)).map((h) => row[normalized.indexOf(h)] ?? '');
+            const originalInputIndex = normalized.indexOf('OriginalInput');
+            let filteredRow = row;
+            
+            if (originalInputIndex !== -1) {
+                filteredRow = row.filter((_, idx) => idx !== originalInputIndex);
+            }
+            
+            if (!nsbCompactView) return filteredRow;
+            
+            const adjustedNormalized = normalized.filter(h => h !== 'OriginalInput');
+            return NSB_COMPACT_HEADERS.filter((h) => adjustedNormalized.includes(h) && h !== 'OriginalInput').map((h) => {
+                const idx = adjustedNormalized.indexOf(h);
+                return idx !== -1 ? filteredRow[idx] : '';
+            });
         }
 
         function getVisibleNSBHeaders() {
             if (nsbHeaders.length) return filterNSBHeaders(nsbHeaders);
-            return nsbCompactView ? NSB_COMPACT_HEADERS : NSB_LIVE_HEADERS;
+            const base = nsbCompactView ? NSB_COMPACT_HEADERS : NSB_LIVE_HEADERS;
+            return base.filter(h => h !== 'OriginalInput');
         }
 
         function nsbRowToArray(row) {
             return [
-                row.ip || '', row.port || '', row.tls ?? '-', row.lossRate || '0%', row.latency || '-', row.speed || '-',
+                row.ip || '', row.originalInput || '', row.port || '', row.tls ?? '-', row.lossRate || '0%', row.latency || '-', row.speed || '-',
                 row.outboundIP || '-', row.ipType || '-', row.dc || '-', row.loc || '-',
                 row.region || '-', row.city || '-', row.asnNumber || '-', row.asnOrg || '-',
                 row.visitScheme || '-', row.tlsVersion || '-', row.sni || '-', row.httpVersion || '-',
@@ -3607,7 +3620,7 @@
         function renderNSBLiveRowHTML(row) {
             const visibleHeaders = getVisibleNSBHeaders();
             const visibleRow = filterNSBRow(NSB_LIVE_HEADERS, nsbRowToArray(row));
-            const tds = renderNSBRowFromCSV(visibleHeaders, visibleRow);
+            const tds = renderNSBRowFromCSV(visibleHeaders, visibleRow, row.originalInput);
             const rowStatus = getSpeedStatus(row.speed, isNSBSpeedQualified(row.speed));
             return `<tr class="${rowStatus === 'qualified' ? 'row-qualified' : (rowStatus === 'unqualified' ? 'row-unqualified' : '')}">${tds}</tr>`;
         }
